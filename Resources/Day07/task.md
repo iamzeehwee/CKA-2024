@@ -6,14 +6,23 @@
 
 **Task 1**
 - Create a pod using the imperative command and use nginx as the image
+- Ans: 
+  - kubectl run myngixpod --image=nginx
 
 **Task2**
 - Create the YAML from the nginx pod created in task 1
+  - kubectl get pod myngixpod -o yaml > pod.yaml
+
 - Update the pod name in the YAML
+  - vi pod.yaml 
+  - Update the pod name to nginx-new as shown in pod.yaml
+
 - Use that YAML to create a new pod with the name nginx-new.
+  - kubectl create -f pod.yaml
 
 **Task3**
 - Apply the below YAML and fix the errors, including all the commands that you run during the troubleshooting and the error message
+  - Remove the "s" from image field. Correct answer is in task3.yaml
 
 ```YAML
 apiVersion: v1
@@ -28,6 +37,7 @@ spec:
     name: redis
     
 ```
+
 2. **Share your learnings**: Document your key takeaways and insights in a blog post and social media update
 3. **Make it public**: Share what you learn publicly on LinkedIn or Twitter.
    - **Tag us and use the hashtag**: Include the following in your post:

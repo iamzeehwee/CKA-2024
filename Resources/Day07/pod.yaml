@@ -1,0 +1,104 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: "2026-01-02T16:27:33Z"
+  labels:
+    run: mynginxpod
+  name: nginx-new
+  namespace: default
+  resourceVersion: "1892"
+  uid: 94d2c695-b649-42fc-901e-abc7b40920e7
+spec:
+  containers:
+  - image: nginx
+    imagePullPolicy: Always
+    name: myngixpod
+    resources: {}
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-s952s
+      readOnly: true
+  dnsPolicy: ClusterFirst
+  enableServiceLinks: true
+  nodeName: cka-cluster2-worker
+  preemptionPolicy: PreemptLowerPriority
+  priority: 0
+  restartPolicy: Always
+  schedulerName: default-scheduler
+  securityContext: {}
+  serviceAccount: default
+  serviceAccountName: default
+  terminationGracePeriodSeconds: 30
+  tolerations:
+  - effect: NoExecute
+    key: node.kubernetes.io/not-ready
+    operator: Exists
+    tolerationSeconds: 300
+  - effect: NoExecute
+    key: node.kubernetes.io/unreachable
+    operator: Exists
+    tolerationSeconds: 300
+  volumes:
+  - name: kube-api-access-s952s
+    projected:
+      defaultMode: 420
+      sources:
+      - serviceAccountToken:
+          expirationSeconds: 3607
+          path: token
+      - configMap:
+          items:
+          - key: ca.crt
+            path: ca.crt
+          name: kube-root-ca.crt
+      - downwardAPI:
+          items:
+          - fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+            path: namespace
+status:
+  conditions:
+  - lastProbeTime: null
+    lastTransitionTime: "2026-01-02T16:28:23Z"
+    status: "True"
+    type: PodReadyToStartContainers
+  - lastProbeTime: null
+    lastTransitionTime: "2026-01-02T16:27:33Z"
+    status: "True"
+    type: Initialized
+  - lastProbeTime: null
+    lastTransitionTime: "2026-01-02T16:28:23Z"
+    status: "True"
+    type: Ready
+  - lastProbeTime: null
+    lastTransitionTime: "2026-01-02T16:28:23Z"
+    status: "True"
+    type: ContainersReady
+  - lastProbeTime: null
+    lastTransitionTime: "2026-01-02T16:27:33Z"
+    status: "True"
+    type: PodScheduled
+  containerStatuses:
+  - containerID: containerd://b58972586aeb37e916221f42e1d2c6e25a9f5e17a4243fba31ea01e170dc3d5f
+    image: docker.io/library/nginx:latest
+    imageID: docker.io/library/nginx@sha256:ca871a86d45a3ec6864dc45f014b11fe626145569ef0e74deaffc95a3b15b430
+    lastState: {}
+    name: myngixpod
+    ready: true
+    restartCount: 0
+    started: true
+    state:
+      running:
+        startedAt: "2026-01-02T16:28:23Z"
+  hostIP: 172.18.0.3
+  hostIPs:
+  - ip: 172.18.0.3
+  phase: Running
+  podIP: 10.244.1.2
+  podIPs:
+  - ip: 10.244.1.2
+  qosClass: BestEffort
+  startTime: "2026-01-02T16:27:33Z"
