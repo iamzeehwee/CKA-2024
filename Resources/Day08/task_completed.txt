@@ -1,0 +1,288 @@
+## Task 8/40
+
+
+In this exercise, you will create a Deployment with multiple replicas. After inspecting the Deployment, you will update its Pod template. You will also be able to use the rollout history to roll back to a previous revision.
+
+> [!NOTE]
+> If you do not already have a Kubernetes cluster, you can create a local Kubernetes cluster by following [Day06 Video](https://youtu.be/RORhczcOrWs)
+
+
+## Replicaset
+- Create a new Replicaset based on the nginx image with 4 replicas
+  1. Create a pod first to get the pod's yaml manifest: kubectl run nginxpod --image=nginx --dry-run=client -o yaml > pod.yaml
+  2. Create a Replicaset manifest with necessary labels: vi replicaset.yaml
+  3. Copy the pod's metadata onwards to Replicaset manifest. Refer to replicaset.yaml
+  4. Create the replicaset: kubectl create -f replicaset.yaml
+  5. Final Output: kubectl get all
+      NAME                   READY   STATUS    RESTARTS   AGE
+      pod/replicaset-bbql4   1/1     Running   0          56s
+      pod/replicaset-ngg96   1/1     Running   0          56s
+      pod/replicaset-p8v9v   1/1     Running   0          56s
+      pod/replicaset-zdh7z   1/1     Running   0          56s
+      
+      NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+      service/kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   41h
+      
+      NAME                         DESIRED   CURRENT   READY   AGE
+      replicaset.apps/replicaset   4         4         4       56s
+      
+- Update the replicas to 3 from the YAML
+  1. Update the replica from YAML: vi replicaset.yaml
+  2. Apply the changes: kubectl apply -f replicaset.yaml
+  3. Final Output: Notice that 1 pod is removed but those created before were still available
+    NAME                   READY   STATUS    RESTARTS   AGE
+    pod/replicaset-ngg96   1/1     Running   0          2m35s
+    pod/replicaset-p8v9v   1/1     Running   0          2m35s
+    pod/replicaset-zdh7z   1/1     Running   0          2m35s
+    
+    NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+    service/kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   41h
+    
+    NAME                         DESIRED   CURRENT   READY   AGE
+    replicaset.apps/replicaset   3         3         3       2m35s
+  
+- Update the replicas to 6 from the command line
+  1. Scale to 6: kubectl scale rs replicaset --replicas=6
+  2. Final Output: Notice that existing replicas still exists, but more pods were created
+    NAME                   READY   STATUS    RESTARTS   AGE
+    pod/replicaset-424k8   1/1     Running   0          24s
+    pod/replicaset-cccsd   1/1     Running   0          24s
+    pod/replicaset-mwfj9   1/1     Running   0          24s
+    pod/replicaset-ngg96   1/1     Running   0          5m54s
+    pod/replicaset-p8v9v   1/1     Running   0          5m54s
+    pod/replicaset-zdh7z   1/1     Running   0          5m54s
+    
+    NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+    service/kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   41h
+    
+    NAME                         DESIRED   CURRENT   READY   AGE
+    replicaset.apps/replicaset   6         6         6       5m54s
+
+## Deployment
+1. Create a Deployment named `nginx` with 3 replicas. The Pods should use the `nginx:1.23.0` image and the name `nginx`. The Deployment uses the label `tier=backend`. The Pod template should use the label `app=v1`.
+   a. Create a deployment.yaml
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: nginx-deployment
+        labels:
+          tier: backend
+      spec:
+        replicas: 3
+        selector:
+          matchLabels:
+            app: v1
+        template:
+          metadata:
+            labels: 
+              app: v1
+          spec:
+            containers:
+            - name: nginx
+              image: nginx:1.23.0
+              
+   b. Create the deployment using the yaml: kubectl create -f deployment.yaml
+   c. Final Output: 
+    NAME                                    READY   STATUS    RESTARTS   AGE
+    pod/nginx-deployment-5d9b68bdd7-5lssc   1/1     Running   0          2m52s
+    pod/nginx-deployment-5d9b68bdd7-87dsb   1/1     Running   0          2m51s
+    pod/nginx-deployment-5d9b68bdd7-fccbk   1/1     Running   0          2m51s
+    
+    NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+    service/kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   41h
+    
+    NAME                               READY   UP-TO-DATE   AVAILABLE   AGE
+    deployment.apps/nginx-deployment   0/3     3            0           2m52s
+    
+    NAME                                          DESIRED   CURRENT   READY   AGE
+    replicaset.apps/nginx-deployment-5d9b68bdd7   3         3         0       2m52s
+   
+3. List the Deployment and ensure the correct number of replicas is running.
+  a. List the deployment: kubectl get deployment
+    NAME               READY   UP-TO-DATE   AVAILABLE   AGE
+    nginx-deployment   3/3     3            3           3m19s
+
+4. Update the image to `nginx:1.23.4`.
+   a. Edit the yaml file: kubectl edit deployment nginx-deployment
+   b. Update the image in the yaml file. Once file is saved, pods should be updated via rolling update method whereby a new pod with updated image version is created, once it is running successfully, old pod is terminated. This is done 1 by 1
+   
+6. Verify that the change has been rolled out to all replicas.
+   a. Final Output. Notice that old pods are being terminated and new pods with updated image version are created: 
+    NAME                                READY   STATUS    RESTARTS   AGE
+    nginx-deployment-58b596848c-np79d   1/1     Running   0          2m18s
+    nginx-deployment-58b596848c-q6ddt   1/1     Running   0          2m53s
+    nginx-deployment-58b596848c-zcg4h   1/1     Running   0          3m39s
+   
+8. Assign the change cause "Pick up patch version" to the revision.
+   a. Describe the deployment to see current description of the deployment: kubectl describe deployment nginx-deployment
+    Name:                   nginx-deployment
+    Namespace:              default
+    CreationTimestamp:      Sat, 03 Jan 2026 17:50:51 +0800
+    Labels:                 tier=backend
+    **Annotations:            deployment.kubernetes.io/revision: 2**
+    Selector:               app=v1
+    Replicas:               3 desired | 3 updated | 3 total | 3 available | 0 unavai
+    lable
+    StrategyType:           RollingUpdate
+    MinReadySeconds:        0
+    RollingUpdateStrategy:  25% max unavailable, 25% max surge
+    Pod Template:
+      Labels:  app=v1
+      Containers:
+       nginx:
+        Image:         nginx:1.23.4
+        Port:          <none>
+        Host Port:     <none>
+        Environment:   <none>
+        Mounts:        <none>
+      Volumes:         <none>
+      Node-Selectors:  <none>
+      Tolerations:     <none>
+    Conditions:
+      Type           Status  Reason
+      ----           ------  ------
+      Available      True    MinimumReplicasAvailable
+      Progressing    True    NewReplicaSetAvailable
+    OldReplicaSets:  nginx-deployment-5d9b68bdd7 (0/0 replicas created)
+    NewReplicaSet:   nginx-deployment-58b596848c (3/3 replicas created)
+    Events:
+      Type    Reason             Age    From                   Message
+      ----    ------             ----   ----                   -------
+      Normal  ScalingReplicaSet  12m    deployment-controller  Scaled up replica set nginx-deployment-5d9b68bdd7 to 3
+      Normal  ScalingReplicaSet  5m50s  deployment-controller  Scaled up replica set nginx-deployment-58b596848c to 1
+      Normal  ScalingReplicaSet  5m4s   deployment-controller  Scaled down replica set nginx-deployment-5d9b68bdd7 to 2 from 3
+      Normal  ScalingReplicaSet  5m4s   deployment-controller  Scaled up replica set nginx-deployment-58b596848c to 2 from 1
+      Normal  ScalingReplicaSet  4m29s  deployment-controller  Scaled down replica set nginx-deployment-5d9b68bdd7 to 1 from 2
+      Normal  ScalingReplicaSet  4m29s  deployment-controller  Scaled up replica set nginx-deployment-58b596848c to 3 from 2
+      Normal  ScalingReplicaSet  4m24s  deployment-controller  Scaled down replica set nginx-deployment-5d9b68bdd7 to 0 from 1
+
+  b. Update the Annotation's change cause: kubectl annotate deployment/nginx-deployment kubernetes.io/change-cause="Pick up patch version"
+  c. Describe the deployment again to see the change:  kubectl describe deployment nginx-deployment
+    Name:                   nginx-deployment
+    Namespace:              default
+    CreationTimestamp:      Sat, 03 Jan 2026 17:50:51 +0800
+    Labels:                 tier=backend
+    **Annotations:            deployment.kubernetes.io/revision: 2
+                            kubernetes.io/change-cause: Pick up patch version**
+    Selector:               app=v1
+    Replicas:               3 desired | 3 updated | 3 total | 3 available | 0 unavailable
+    StrategyType:           RollingUpdate
+    MinReadySeconds:        0
+    RollingUpdateStrategy:  25% max unavailable, 25% max surge
+    Pod Template:
+      Labels:  app=v1
+      Containers:
+       nginx:
+        Image:         nginx:1.23.4
+        Port:          <none>
+        Host Port:     <none>
+        Environment:   <none>
+        Mounts:        <none>
+      Volumes:         <none>
+      Node-Selectors:  <none>
+      Tolerations:     <none>
+    Conditions:
+      Type           Status  Reason
+      ----           ------  ------
+      Available      True    MinimumReplicasAvailable
+      Progressing    True    NewReplicaSetAvailable
+    OldReplicaSets:  nginx-deployment-5d9b68bdd7 (0/0 replicas created)
+    NewReplicaSet:   nginx-deployment-58b596848c (3/3 replicas created)
+    Events:
+      Type    Reason             Age    From                   Message
+      ----    ------             ----   ----                   -------
+      Normal  ScalingReplicaSet  15m    deployment-controller  Scaled up replica set nginx-deployment-5d9b68bdd7 to 3
+      Normal  ScalingReplicaSet  8m53s  deployment-controller  Scaled up replica set nginx-deployment-58b596848c to 1
+      Normal  ScalingReplicaSet  8m7s   deployment-controller  Scaled down replica set nginx-deployment-5d9b68bdd7 to 2 from 3
+      Normal  ScalingReplicaSet  8m7s   deployment-controller  Scaled up replica set nginx-deployment-58b596848c to 2 from 1
+      Normal  ScalingReplicaSet  7m32s  deployment-controller  Scaled down replica set nginx-deployment-5d9b68bdd7 to 1 from 2
+      Normal  ScalingReplicaSet  7m32s  deployment-controller  Scaled up replica set nginx-deployment-58b596848c to 3 from 2
+      Normal  ScalingReplicaSet  7m27s  deployment-controller  Scaled down replica set nginx-deployment-5d9b68bdd7 to 0 from 1
+   
+10. Scale the Deployment to 5 replicas.
+    a. Scale the deployment: kubectl scale deployment/nginx-deployment --replicas=5
+    
+12. Have a look at the Deployment rollout history.
+    a. Show rollout history: kubectl rollout history deployment/nginx-deployment
+      REVISION  CHANGE-CAUSE
+      1         <none>
+      2         Pick up patch version
+
+14. Revert the Deployment to revision 1.
+    a. kubectl rollout undo deployment/nginx-deployment --to-revision=1
+    
+15. Ensure that the Pods use the image `nginx:1.23.0`.
+    a. Final Output. Notice that the pods with image 1.23.0 were newly created
+    NAME                                READY   STATUS    RESTARTS   AGE
+    nginx-deployment-5d9b68bdd7-c4rmm   1/1     Running   0          66s
+    nginx-deployment-5d9b68bdd7-cxnhq   1/1     Running   0          67s
+    nginx-deployment-5d9b68bdd7-f2dm9   1/1     Running   0          69s
+    nginx-deployment-5d9b68bdd7-tdpqn   1/1     Running   0          69s
+    nginx-deployment-5d9b68bdd7-tlmg8   1/1     Running   0          69s
+    
+## Troubleshooting the issue
+1. Apply the below YAML and fix the issue with it
+   a. Answers are in asterisk
+
+``` YAML
+apiVersion: **apps/**v1
+kind:  Deployment
+metadata:
+  name: nginx-deploy
+  labels:
+    env: demo
+spec:
+  template:
+    metadata:
+      labels:
+        env: demo
+      name: nginx
+    spec:
+      containers:
+      - image: nginx
+        name: nginx
+        ports:
+        - containerPort: 80
+  replicas: 3
+  selector:
+    matchLabels:
+      env: demo
+```
+
+2. Apply the below YAML and fix the issue with it
+
+``` YAML
+apiVersion: **apps/**v1
+kind:  Deployment
+metadata:
+  name: nginx-deploy
+  labels:
+    env: demo # This must match selector.matchLabels.env
+spec:
+  template:
+    metadata:
+      labels:
+        env: demo
+      name: nginx
+    spec:
+      containers:
+      - image: nginx
+        name: nginx
+        ports:
+        - containerPort: 80
+  replicas: 3
+  selector:
+    matchLabels:
+      env: **demo**  # This must match metadata.labels.env
+```
+3. **Share your learnings**: Document your key takeaways and insights in a blog post and social media update
+4. **Make it public**: Share what you learn publicly on LinkedIn or Twitter.
+   - **Tag us and use the hashtag**: Include the following in your post:
+     - Tag [@PiyushSachdeva](https://www.linkedin.com/in/piyush-sachdeva) and [@CloudOps Community](https://www.linkedin.com/company/thecloudopscomm) (on both platforms)
+     - Use the hashtag **#40daysofkubernetes**
+     - **Embed the video**: Enhance your blog post by embedding the video lesson from the Kubernetes series. This will provide visual context and reinforce your written explanations.
+
+## Blog Post Focus 📝
+
+- **Clarity is essential**: Write your blog post clearly and concisely, making it easy for anyone to grasp the concepts, regardless of their prior Kubernetes experience.
+
