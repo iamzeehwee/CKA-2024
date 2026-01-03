@@ -1,0 +1,119 @@
+## Task 9/40
+
+
+In this exercise, you will create a Deployment and expose a container port for its Pods. You will demonstrate the differences between the service types ClusterIP and NodePort.
+
+> [!NOTE]
+> If you do not already have a Kubernetes cluster, you can create a local Kubernetes cluster by following [Day06 Video](https://youtu.be/RORhczcOrWs)
+> Also, do the node binding at the cluster level if you are using KIND. The Day9 video has the details on how to do that.
+
+Refer: 
+
+### Task details
+1. Create a Service named `myapp` of type `ClusterIP` that exposes port 80 and maps to the target port 80.
+  a. Create manifest: vi clusterip-service.yaml
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: myapp
+    spec:
+      type: ClusterIP
+      ports:
+        - port: 80
+          targetPort: 80
+      selector:
+        app: v1
+
+  b. Create service: kubectl create -f clusterip-service.yaml
+  c. Final Output. Ignore service/kubernetes as it was created by kind:
+    NAME                 TYPE        CLUSTER-IP    EXTERNAL-IP   PORT(S)   AGE
+    service/kubernetes   ClusterIP   10.96.0.1     <none>        443/TCP   31m
+    service/myapp        ClusterIP   10.96.73.87   <none>        80/TCP    5s
+
+2. Create a Deployment named `myapp` that creates 1 replica running the image `nginx:1.23.4-alpine`. Expose the container port 80.
+  a. Create manifest: vi deployment.yaml
+
+  b. Create Deployment: kubectl create -f deployment.yaml
+
+  c. Final Output. Note that Deployment automatically creates the necessary ReplicaSet and Pods.
+    NAME                         READY   STATUS    RESTARTS   AGE
+    pod/myapp-5564777c65-f2zxd   1/1     Running   0          51s
+
+    NAME                 TYPE        CLUSTER-IP    EXTERNAL-IP   PORT(S)   AGE
+    service/kubernetes   ClusterIP   10.96.0.1     <none>        443/TCP   35m
+    service/myapp        ClusterIP   10.96.73.87   <none>        80/TCP    4m35s
+
+    NAME                    READY   UP-TO-DATE   AVAILABLE   AGE
+    deployment.apps/myapp   1/1     1            1           51s
+
+    NAME                               DESIRED   CURRENT   READY   AGE
+    replicaset.apps/myapp-5564777c65   1         1         1       51s
+
+3. Scale the Deployment to 2 replicas.
+  a. Scale Deployment: kubectl scale deployment myapp --replicas=2
+
+  b. Final Output:
+    NAME                         READY   STATUS    RESTARTS   AGE
+    pod/myapp-5564777c65-f2zxd   1/1     Running   0          2m53s
+    pod/myapp-5564777c65-wgx4b   1/1     Running   0          72s
+
+    NAME                 TYPE        CLUSTER-IP    EXTERNAL-IP   PORT(S)   AGE
+    service/kubernetes   ClusterIP   10.96.0.1     <none>        443/TCP   37m
+    service/myapp        ClusterIP   10.96.73.87   <none>        80/TCP    6m38s
+
+    NAME                    READY   UP-TO-DATE   AVAILABLE   AGE
+    deployment.apps/myapp   2/2     2            2           2m54s
+
+    NAME                               DESIRED   CURRENT   READY   AGE
+    replicaset.apps/myapp-5564777c65   2         2         2       2m54s
+
+4. Create a temporary Pod using the image `busybox` and run a `wget` command against the IP of the service.
+  a. Since it is temporary pod, I created the pod via imperative way: kubectl run temppod --image=busybox 
+
+  b. Output after creating pod:
+    NAME                         READY   STATUS      RESTARTS      AGE     IP           NODE                        NOMINATED NODE   READINESS GATES
+    pod/myapp-5564777c65-f2zxd   1/1     Running     0             4m31s   10.244.1.2   kind-cka-cluster3-worker    <none>           <none>
+    pod/myapp-5564777c65-wgx4b   1/1     Running     0             2m50s   10.244.2.2   kind-cka-cluster3-worker2   <none>           <none>
+    pod/temppod                  0/1     Completed   2 (24s ago)   52s     10.244.2.3   kind-cka-cluster3-worker2   <none>           <none>
+
+    NAME                 TYPE        CLUSTER-IP    EXTERNAL-IP   PORT(S)   AGE     SELECTOR
+    service/kubernetes   ClusterIP   10.96.0.1     <none>        443/TCP   39m     <none>
+    service/myapp        ClusterIP   10.96.73.87   <none>        80/TCP    8m15s   <none>
+
+    NAME                    READY   UP-TO-DATE   AVAILABLE   AGE     CONTAINERS   IMAGES                SELECTOR
+    deployment.apps/myapp   2/2     2            2           4m31s   nginx        nginx:1.23.4-alpine   app=v1
+
+    NAME                               DESIRED   CURRENT   READY   AGE     CONTAINERS   IMAGES                SELECTOR
+    replicaset.apps/myapp-5564777c65   2         2         2       4m31s   nginx        nginx:1.23.4-alpine   app=v1,pod-template-hash=5564777c65
+
+  c. Do a curl instead of wget as wget is not installed. It was refused because the service type is ClusterIP: curl 10.244.2.3
+    curl: (28) Failed to connect to 10.244.2.3 port 80 after 21339 ms: Could not connect to server
+
+5. Run a `wget` command against the service outside the cluster.
+  a. Do a curl. Below is output. It was refused because the service type is ClusterIP: curl 10.96.73.87
+    curl: (28) Failed to connect to 10.96.73.87 port 80 after 21048 ms: Could not connect to server
+
+6. Change the service type so the Pods can be reached outside the cluster.
+  a. Change clusterip-service.yaml to NodePort Service. Refer to YAML. 
+
+7. Run a `wget` command against the service outside the cluster.
+  a. Do a curl. Successful: curl localhost:30001
+
+8. Discuss: Can you expose the Pods as a service without a deployment?
+  a. Yes, as long as the selector labels are matching
+
+9. Discuss: Under what condition would you use the service types `LoadBalancer,` `node port,` `clusterIP,` and `external`?
+  a. LoadBalancer: For external users to access the application via DNS. Users do not need to remember IP addresses, and LoadBalancer can route traffic to different pods depending on the workload. 
+  b. NodePort: 
+
+3. **Share your learnings**: Document your key takeaways and insights in a blog post and social media update
+4. **Make it public**: Share what you learn publicly on LinkedIn or Twitter.
+   - **Tag us and use the hashtag**: Include the following in your post:
+     - Tag [@PiyushSachdeva](https://www.linkedin.com/in/piyush-sachdeva) and [@CloudOps Community](https://www.linkedin.com/company/thecloudopscomm) (on both platforms)
+     - Use the hashtag **#40daysofkubernetes**
+     - **Embed the video**: Enhance your blog post by embedding the video lesson from the Kubernetes series. This will give you visual context and reinforce your written explanations.
+
+## Blog Post Focus 📝
+
+- **Clarity is essential**: Write your blog post clearly and concisely, making it easy for anyone to grasp the concepts, regardless of their prior Kubernetes experience.
+
