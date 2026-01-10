@@ -1,0 +1,187 @@
+## Task 10/40
+
+
+In this exercise, you will explore namespaces in depth by creating multiple Kubernetes resources.
+
+> [!NOTE]
+> If you do not already have a Kubernetes cluster, you can create a local Kubernetes cluster by following [Day06 Video](https://youtu.be/RORhczcOrWs)
+Also, could you do the port binding at the cluster level if you are using KIND? The Day9 video has the details on how to do that.
+
+### Task details
+- Create two namespaces and name them ns1 and ns2
+  1. Create namespaces: kubectl create namespace ns1, kubectl create namespace ns2
+  2. Verify the namespaces are created via the command: kubectl get ns
+    NAME                 STATUS   AGE
+    default              Active   15h
+    kube-node-lease      Active   15h
+    kube-public          Active   15h
+    kube-system          Active   15h
+    local-path-storage   Active   15h
+    ns1                  Active   22s
+    ns2                  Active   18s
+
+- Create a deployment with a single replica in each of these namespaces with the image as nginx and name as deploy-ns1 and deploy-ns2, respectively
+  1. Create deployment manifests for each namespace: deploy-ns1.yaml, deploy-ns2.yaml
+  2. Create the deployment: kubectl create -f deploy-ns1.yaml -n ns1, kubectl create -f deploy-ns1.yaml -n ns2
+  3. Verify the deployment is created in ns1: kubectl get all -n ns1
+    NAME                             READY   STATUS    RESTARTS   AGE
+    pod/deploy-ns1-d945d5f55-7vmn2   1/1     Running   0          78s
+
+    NAME                         READY   UP-TO-DATE   AVAILABLE   AGE
+    deployment.apps/deploy-ns1   1/1     1            1           79s
+
+    NAME                                   DESIRED   CURRENT   READY   AGE
+    replicaset.apps/deploy-ns1-d945d5f55   1         1         1       79s
+
+  4. Verify the deployment is created in ns2: kubectl get all -n ns2
+    NAME                             READY   STATUS    RESTARTS   AGE
+    pod/deploy-ns2-d945d5f55-qklpb   1/1     Running   0          117s
+
+    NAME                         READY   UP-TO-DATE   AVAILABLE   AGE
+    deployment.apps/deploy-ns2   1/1     1            1           117s
+
+    NAME                                   DESIRED   CURRENT   READY   AGE
+    replicaset.apps/deploy-ns2-d945d5f55   1         1         1       117s
+
+- Get the IP address of each of the pods (Remember the kubectl command for that?)
+  1. Get the IP for pod in ns1:  kubectl get pod -n ns1 -o wide
+    NAME                         READY   STATUS    RESTARTS   AGE     IP           NODE                       NOMINATED NODE   READINESS GATES
+    deploy-ns1-d945d5f55-7vmn2   1/1     Running   0          3m16s   10.244.1.4   kind-cka-cluster3-worker   <none>           <none>
+
+  2. Get the IP for pod in ns2: kubectl get pod -n ns2 -o wide
+    NAME                         READY   STATUS    RESTARTS   AGE     IP           NODE                        NOMINATED NODE   READINESS GATES
+    deploy-ns2-d945d5f55-qklpb   1/1     Running   0          3m16s   10.244.2.5   kind-cka-cluster3-worker2   <none>           <none>
+
+- Exec into the pod of deploy-ns1 and try to curl the IP address of the pod running on deploy-ns2
+  1. Exec into the pod: kubectl exec -it deploy-ns1-d945d5f55-7vmn2 -n ns1 -- sh
+  2. Curl IP address of pod running on deploy-ns2, below is the output:
+    # curl 10.244.2.5
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <title>Welcome to nginx!</title>
+    <style>
+    html { color-scheme: light dark; }
+    body { width: 35em; margin: 0 auto;
+    font-family: Tahoma, Verdana, Arial, sans-serif; }
+    </style>
+    </head>
+    <body>
+    <h1>Welcome to nginx!</h1>
+    <p>If you see this page, the nginx web server is successfully installed and
+    working. Further configuration is required.</p>
+
+    <p>For online documentation and support please refer to
+    <a href="http://nginx.org/">nginx.org</a>.<br/>
+    Commercial support is available at
+    <a href="http://nginx.com/">nginx.com</a>.</p>
+
+    <p><em>Thank you for using nginx.</em></p>
+    </body>
+    </html>
+    #
+
+- Your pod-to-pod connection should work, and you should be able to get a successful response back.
+  1. Yes, as shown above
+
+- Now scale both of your deployments from 1 to 3 replicas.
+  1. Scale deployment for deploy-ns1: kubectl scale deployment/deploy-ns1 -n ns1 --replicas=3
+  2. Verify the result: kubectl get all -n ns1
+    NAME                             READY   STATUS    RESTARTS   AGE
+    pod/deploy-ns1-d945d5f55-7vmn2   1/1     Running   0          7m49s
+    pod/deploy-ns1-d945d5f55-ndkjl   1/1     Running   0          57s
+    pod/deploy-ns1-d945d5f55-ppk9f   1/1     Running   0          57s
+
+    NAME                         READY   UP-TO-DATE   AVAILABLE   AGE
+    deployment.apps/deploy-ns1   3/3     3            3           7m50s
+
+    NAME                                   DESIRED   CURRENT   READY   AGE
+    replicaset.apps/deploy-ns1-d945d5f55   3         3         3       7m50s
+
+  3. Scale deployment for deploy-ns2: kubectl scale deployment/deploy-ns2 -n ns2 --replicas=3
+  4. Verify the result: kubectl get all -n ns2
+    NAME                             READY   STATUS    RESTARTS   AGE
+    pod/deploy-ns2-d945d5f55-d8m2s   1/1     Running   0          77s
+    pod/deploy-ns2-d945d5f55-qklpb   1/1     Running   0          8m10s
+    pod/deploy-ns2-d945d5f55-t2xjg   1/1     Running   0          77s
+
+    NAME                         READY   UP-TO-DATE   AVAILABLE   AGE
+    deployment.apps/deploy-ns2   3/3     3            3           8m10s
+
+    NAME                                   DESIRED   CURRENT   READY   AGE
+    replicaset.apps/deploy-ns2-d945d5f55   3         3         3       8m10s
+
+- Create two services to expose both of your deployments and name them svc-ns1 and svc-ns2
+  1. Create svc-ns1: kubectl expose deployment/deploy-ns1 -n ns1 --port=80 --target-port=8000 --name=svc-ns1
+  2. Verify svc-ns1 is created: kubectl get all -n ns1 -o wide
+    NAME                             READY   STATUS    RESTARTS   AGE   IP           NODE                        NOMINATED NODE   READINESS GATES
+    pod/deploy-ns1-d945d5f55-7vmn2   1/1     Running   0          23m   10.244.1.4   kind-cka-cluster3-worker    <none>           <none>
+    pod/deploy-ns1-d945d5f55-ndkjl   1/1     Running   0          16m   10.244.1.5   kind-cka-cluster3-worker    <none>           <none>
+    pod/deploy-ns1-d945d5f55-ppk9f   1/1     Running   0          16m   10.244.2.6   kind-cka-cluster3-worker2   <none>           <none>
+
+    NAME              TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)   AGE   SELECTOR
+    service/svc-ns1   ClusterIP   10.96.122.67   <none>        80/TCP    12m   app=v1
+
+    NAME                         READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS   IMAGES   SELECTOR
+    deployment.apps/deploy-ns1   3/3     3            3           23m   nginx        nginx    app=v1
+
+    NAME                                   DESIRED   CURRENT   READY   AGE   CONTAINERS   IMAGES   SELECTOR
+    replicaset.apps/deploy-ns1-d945d5f55   3         3         3       23m   nginx        nginx    app=v1,pod-template-hash=d945d5f55
+
+  3. Create svc-ns2: kubectl expose deployment/deploy-ns2 -n ns2 --port=80 --target-port=8000 --name=svc-ns2
+  4. Verify svc-ns2 is created: kubectl get all -n ns2 -o wide
+    NAME                             READY   STATUS    RESTARTS   AGE   IP           NODE                        NOMINATED NODE   READINESS GATES
+    pod/deploy-ns2-d945d5f55-d8m2s   1/1     Running   0          16m   10.244.2.7   kind-cka-cluster3-worker2   <none>           <none>
+    pod/deploy-ns2-d945d5f55-qklpb   1/1     Running   0          23m   10.244.2.5   kind-cka-cluster3-worker2   <none>           <none>
+    pod/deploy-ns2-d945d5f55-t2xjg   1/1     Running   0          16m   10.244.1.6   kind-cka-cluster3-worker    <none>           <none>
+
+    NAME              TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)   AGE   SELECTOR
+    service/svc-ns2   ClusterIP   10.96.56.224   <none>        80/TCP    11m   app=v1
+
+    NAME                         READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS   IMAGES   SELECTOR
+    deployment.apps/deploy-ns2   3/3     3            3           23m   nginx        nginx    app=v1
+
+    NAME                                   DESIRED   CURRENT   READY   AGE   CONTAINERS   IMAGES   SELECTOR
+    replicaset.apps/deploy-ns2-d945d5f55   3         3         3       23m   nginx        nginx    app=v1,pod-template-hash=d945d5f55
+
+- exec into each pod and try to curl the IP address of the service running on the other namespace.
+  1. Exec into a pod in ns2 to do the curl to svc-ns1 (10.96.122.67): kubectl exec -it deploy-ns2-d945d5f55-d8m2s -n ns2 -- sh
+    # curl 10.96.122.67
+    curl: (7) Failed to connect to 10.96.122.67 port 80 after 2 ms: Could not connect to server
+    # curl 10.96.122.67:80
+    curl: (7) Failed to connect to 10.96.122.67 port 80 after 1 ms: Could not connect to server
+    # curl 10.96.56.224
+    curl: (7) Failed to connect to 10.96.56.224 port 80 after 27 ms: Could not connect to server
+    # curl 10.96.56.224:80
+    curl: (7) Failed to connect to 10.96.56.224 port 80 after 4 ms: Could not connect to server
+
+- This curl should work.
+  1. No, it does not work. It is unable to access svc-ns1 and svc-ns2 via IP address but it is able to access pods in both ns1 and ns2.
+
+- Now try curling the service name instead of IP. You will notice that you are getting an error and cannot resolve the host.
+  1. Exec into a pod in ns2 to do curl via svc-ns1: kubectl exec -it deploy-ns2-d945d5f55-d8m2s -n ns2 -- sh
+    # curl svc-ns1
+    curl: (6) Could not resolve host: svc-ns1
+
+- Now use the FQDN of the service and try to curl again, this should work.
+  1. Exec into a pod in ns2, and find the /etc/resolv.conf file. This file is responsible for IP address to DNS resolution internally.
+    $ kubectl exec -it deploy-ns2-d945d5f55-d8m2s -n ns2 -- sh
+    # cat /etc/resolv.conf
+    search ns2.svc.cluster.local svc.cluster.local cluster.local
+    nameserver 10.96.0.10
+    options ndots:5
+
+- In the end, delete both the namespaces, which should delete the services and deployments underneath them.
+
+
+3. **Share your learnings**: Document your key takeaways and insights in a blog post and social media update
+4. **Make it public**: Share what you learn publicly on LinkedIn or Twitter.
+   - **Tag us and use the hashtag**: Include the following in your post:
+     - Tag [@PiyushSachdeva](https://www.linkedin.com/in/piyush-sachdeva) and [@CloudOps Community](https://www.linkedin.com/company/thecloudopscomm) (on both platforms)
+     - Use the hashtag **#40daysofkubernetes**
+     - **Embed the video**: Enhance your blog post by embedding the video lesson from the Kubernetes series. This will give you visual context and reinforce your written explanations.
+
+## Blog Post Focus 📝
+
+- **Clarity is essential**: Write your blog post clearly and concisely, making it easy for anyone to grasp the concepts, regardless of their prior Kubernetes experience.
+
